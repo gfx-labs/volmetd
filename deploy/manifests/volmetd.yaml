@@ -1,3 +1,53 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: volmetd
+  labels:
+    app.kubernetes.io/name: volmetd
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: volmetd
+  namespace: volmetd
+  labels:
+    app.kubernetes.io/name: volmetd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: volmetd
+  labels:
+    app.kubernetes.io/name: volmetd
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: volmetd
+  labels:
+    app.kubernetes.io/name: volmetd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: volmetd
+subjects:
+  - kind: ServiceAccount
+    name: volmetd
+    namespace: volmetd
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -22,7 +72,7 @@ spec:
       hostPID: false
       containers:
         - name: volmetd
-          image: ghcr.io/gfx-labs/volmetd:latest
+          image: ghcr.io/gfx-labs/volmetd:master
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics
@@ -76,3 +126,36 @@ spec:
       tolerations:
         - operator: Exists
       priorityClassName: system-node-critical
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: volmetd
+  namespace: volmetd
+  labels:
+    app.kubernetes.io/name: volmetd
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: volmetd
+  ports:
+    - name: metrics
+      port: 6060
+      targetPort: metrics
+      protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: volmetd
+  namespace: volmetd
+  labels:
+    app.kubernetes.io/name: volmetd
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: volmetd
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
