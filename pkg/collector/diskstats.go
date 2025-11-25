@@ -11,6 +11,7 @@ import (
 
 var volumeLabels_ = []string{
 	"device",
+	"csi_device",
 	"pvc",
 	"namespace",
 	"pv",
@@ -93,6 +94,7 @@ func (d *DiskstatsCollector) Update(volumes []*discovery.VolumeInfo, ch chan<- p
 func volumeLabels(vol *discovery.VolumeInfo) []string {
 	return []string{
 		vol.DeviceName,
+		vol.CSIDevicePath,
 		vol.PVCName,
 		vol.PVCNamespace,
 		vol.PVName,

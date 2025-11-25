@@ -164,7 +164,8 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 				continue
 			}
 
-			deviceName, _ := mounts.GetDeviceName(mount.Device)
+			// Resolve symlinks to get actual device for diskstats
+			resolvedPath, deviceName := mounts.ResolveDevice(mount.Device)
 
 			// Find container mount path
 			containerMountPath := findContainerMountPath(&pod, vol.Name)
@@ -178,7 +179,8 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 				PodName:            pod.Name,
 				PodNamespace:       pod.Namespace,
 				PodUID:             string(pod.UID),
-				DevicePath:         mount.Device,
+				CSIDevicePath:      mount.Device,
+				DevicePath:         resolvedPath,
 				DeviceName:         deviceName,
 				MountPath:          mountPath,
 				ContainerMountPath: containerMountPath,

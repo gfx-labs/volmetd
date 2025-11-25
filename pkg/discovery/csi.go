@@ -112,20 +112,22 @@ func (d *CSIDiscoverer) discoverCSIVolumes(ctx context.Context, podUID, csiDir s
 			continue
 		}
 
-		deviceName, _ := mounts.GetDeviceName(mount.Device)
+		// Resolve symlinks to get actual device for diskstats
+		resolvedPath, deviceName := mounts.ResolveDevice(mount.Device)
 
 		vol := &VolumeInfo{
-			PVName:       volData.VolumeName,
-			PVCName:      extractPVCName(volData.VolumeName),
-			PVCNamespace: volData.PodNamespace,
-			PodName:      volData.PodName,
-			PodNamespace: volData.PodNamespace,
-			PodUID:       podUID,
-			CSIDriver:    volData.DriverName,
-			VolumeHandle: volData.VolumeHandle,
-			DevicePath:   mount.Device,
-			DeviceName:   deviceName,
-			MountPath:    mountPath,
+			PVName:        volData.VolumeName,
+			PVCName:       extractPVCName(volData.VolumeName),
+			PVCNamespace:  volData.PodNamespace,
+			PodName:       volData.PodName,
+			PodNamespace:  volData.PodNamespace,
+			PodUID:        podUID,
+			CSIDriver:     volData.DriverName,
+			VolumeHandle:  volData.VolumeHandle,
+			CSIDevicePath: mount.Device,
+			DevicePath:    resolvedPath,
+			DeviceName:    deviceName,
+			MountPath:     mountPath,
 		}
 
 		volumes = append(volumes, vol)

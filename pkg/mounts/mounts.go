@@ -95,24 +95,57 @@ func GetCapacity(mountPoint string) (*Capacity, error) {
 	}, nil
 }
 
+// ResolveDevice resolves a device path (following symlinks) and returns both
+// the resolved path and the device name for diskstats
+func ResolveDevice(devicePath string) (resolvedPath, deviceName string) {
+	// Try to fully resolve symlinks
+	resolved, err := evalSymlinks(devicePath)
+	if err != nil {
+		resolved = devicePath
+	}
+
+	// Extract device name (basename)
+	parts := strings.Split(resolved, "/")
+	name := parts[len(parts)-1]
+
+	return resolved, name
+}
+
+// evalSymlinks resolves all symlinks in a path
+func evalSymlinks(path string) (string, error) {
+	// Use filepath.EvalSymlinks equivalent
+	for i := 0; i < 255; i++ { // limit iterations to prevent infinite loops
+		fi, err := os.Lstat(path)
+		if err != nil {
+			return path, err
+		}
+
+		if fi.Mode()&os.ModeSymlink == 0 {
+			return path, nil
+		}
+
+		target, err := os.Readlink(path)
+		if err != nil {
+			return path, err
+		}
+
+		if !strings.HasPrefix(target, "/") {
+			// Relative symlink - resolve relative to parent dir
+			dir := path[:strings.LastIndex(path, "/")+1]
+			path = dir + target
+		} else {
+			path = target
+		}
+	}
+
+	return path, fmt.Errorf("too many symlinks")
+}
+
 // GetDeviceName extracts the base device name from a device path
 // e.g., /dev/sda1 -> sda1, /dev/mapper/foo -> dm-X (via symlink resolution)
 func GetDeviceName(devicePath string) (string, error) {
-	// Resolve symlinks
-	resolved, err := os.Readlink(devicePath)
-	if err != nil {
-		// Not a symlink, use basename
-		parts := strings.Split(devicePath, "/")
-		return parts[len(parts)-1], nil
-	}
-
-	// If relative path, it's relative to /dev
-	if !strings.HasPrefix(resolved, "/") {
-		resolved = "/dev/" + resolved
-	}
-
-	parts := strings.Split(resolved, "/")
-	return parts[len(parts)-1], nil
+	_, name := ResolveDevice(devicePath)
+	return name, nil
 }
 
 // FindMountByPath finds a mount that contains the given path

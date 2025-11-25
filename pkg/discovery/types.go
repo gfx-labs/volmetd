@@ -20,8 +20,9 @@ type VolumeInfo struct {
 	VolumeHandle string // CSI volume handle / cloud provider volume ID
 
 	// Node-local info
-	DevicePath         string // e.g., /dev/sda
-	DeviceName         string // e.g., sda
+	DevicePath         string // resolved device path, e.g., /dev/sda
+	DeviceName         string // device name for diskstats, e.g., sda
+	CSIDevicePath      string // original CSI device path, e.g., /dev/disk/by-id/scsi-0DO_Volume_...
 	MountPath          string // host path, e.g., /var/lib/kubelet/pods/.../volumes/...
 	ContainerMountPath string // path inside container, e.g., /data
 }
