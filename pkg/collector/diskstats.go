@@ -76,10 +76,16 @@ func (d *DiskstatsCollector) Update(volumes []*discovery.VolumeInfo, ch chan<- p
 
 	wg := sync.WaitGroup{}
 	for _, vol := range volumes {
-		s, ok := stats[vol.DeviceName]
+		// Device name should already be resolved by VolumeCollector
+		if vol.DeviceName == "" {
+			continue
+		}
+
+		s, ok := stats.ByName[vol.DeviceName]
 		if !ok {
 			continue
 		}
+
 		wg.Add(1)
 		go func(vol *discovery.VolumeInfo, s *diskstats.Stats) {
 			defer wg.Done()

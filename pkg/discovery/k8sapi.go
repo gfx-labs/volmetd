@@ -3,6 +3,7 @@ package discovery
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,6 +44,7 @@ func NewK8sAPIDiscoverer(kubeletPath, mountsPath string, namespaces []string) (*
 	}
 
 	nodeName := detectNodeName()
+	log.Printf("k8sapi: detected node name: %q", nodeName)
 
 	if kubeletPath == "" {
 		kubeletPath = "/var/lib/kubelet"
@@ -93,12 +95,21 @@ func (d *K8sAPIDiscoverer) Name() string {
 }
 
 func (d *K8sAPIDiscoverer) Available(ctx context.Context) bool {
-	if d.client == nil || d.nodeName == "" {
+	if d.client == nil {
+		log.Printf("k8sapi: client is nil")
+		return false
+	}
+	if d.nodeName == "" {
+		log.Printf("k8sapi: node name not detected")
 		return false
 	}
 	// Quick check that we can talk to the API
 	_, err := d.client.CoreV1().Nodes().Get(ctx, d.nodeName, metav1.GetOptions{})
-	return err == nil
+	if err != nil {
+		log.Printf("k8sapi: cannot get node %s: %v", d.nodeName, err)
+		return false
+	}
+	return true
 }
 
 func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) {
@@ -167,6 +178,9 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 			// Resolve symlinks to get actual device for diskstats
 			resolvedPath, deviceName := mounts.ResolveDevice(mount.Device)
 
+			// Get device ID from mount point for reliable diskstats lookup
+			deviceID, _ := mounts.GetDeviceID(mountPath)
+
 			// Find container mount path
 			containerMountPath := findContainerMountPath(&pod, vol.Name)
 
@@ -182,6 +196,7 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 				CSIDevicePath:      mount.Device,
 				DevicePath:         resolvedPath,
 				DeviceName:         deviceName,
+				DeviceID:           deviceID,
 				MountPath:          mountPath,
 				ContainerMountPath: containerMountPath,
 			}

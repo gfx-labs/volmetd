@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/gfx-labs/volmetd/pkg/discovery"
+	"github.com/gfx-labs/volmetd/pkg/diskstats"
 )
 
 // Collector collects metrics for discovered volumes
@@ -41,13 +42,18 @@ var (
 type VolumeCollector struct {
 	discoverer *discovery.MultiDiscoverer
 	collectors []Collector
+	procPath   string
 }
 
 // NewVolumeCollector creates a new volume collector
-func NewVolumeCollector(discoverer *discovery.MultiDiscoverer, collectors ...Collector) *VolumeCollector {
+func NewVolumeCollector(discoverer *discovery.MultiDiscoverer, procPath string, collectors ...Collector) *VolumeCollector {
+	if procPath == "" {
+		procPath = "/proc"
+	}
 	return &VolumeCollector{
 		discoverer: discoverer,
 		collectors: collectors,
+		procPath:   procPath,
 	}
 }
 
@@ -76,6 +82,9 @@ func (v *VolumeCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(scrapeSuccessDesc, prometheus.GaugeValue, 1, "discovery")
 	ch <- prometheus.MustNewConstMetric(volumesDiscoveredDesc, prometheus.GaugeValue, float64(len(volumes)))
 
+	// Resolve device names from diskstats before running collectors
+	v.resolveDeviceNames(volumes)
+
 	// Run collectors in parallel
 	wg := sync.WaitGroup{}
 	wg.Add(len(v.collectors))
@@ -103,4 +112,22 @@ func (v *VolumeCollector) execute(c Collector, volumes []*discovery.VolumeInfo, 
 		return
 	}
 	ch <- prometheus.MustNewConstMetric(scrapeSuccessDesc, prometheus.GaugeValue, 1, c.Name())
+}
+
+// resolveDeviceNames resolves device names from diskstats using device IDs
+func (v *VolumeCollector) resolveDeviceNames(volumes []*discovery.VolumeInfo) {
+	stats, err := diskstats.Parse(v.procPath + "/diskstats")
+	if err != nil {
+		log.Printf("failed to parse diskstats for device name resolution: %v", err)
+		return
+	}
+
+	for _, vol := range volumes {
+		// Try to resolve device name from device ID
+		if vol.DeviceID != "" {
+			if s, ok := stats.ByDeviceID[vol.DeviceID]; ok {
+				vol.DeviceName = s.DeviceName
+			}
+		}
+	}
 }

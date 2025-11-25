@@ -53,8 +53,14 @@ func (s *Stats) WriteBytesTotal() uint64 {
 	return s.SectorsWritten * 512
 }
 
+// StatsMap holds diskstats indexed by both device name and major:minor
+type StatsMap struct {
+	ByName     map[string]*Stats // keyed by device name (e.g., "sda")
+	ByDeviceID map[string]*Stats // keyed by "major:minor" (e.g., "8:0")
+}
+
 // Parse reads /proc/diskstats and returns stats for all devices
-func Parse(path string) (map[string]*Stats, error) {
+func Parse(path string) (*StatsMap, error) {
 	if path == "" {
 		path = "/proc/diskstats"
 	}
@@ -65,7 +71,10 @@ func Parse(path string) (map[string]*Stats, error) {
 	}
 	defer f.Close()
 
-	result := make(map[string]*Stats)
+	result := &StatsMap{
+		ByName:     make(map[string]*Stats),
+		ByDeviceID: make(map[string]*Stats),
+	}
 	scanner := bufio.NewScanner(f)
 
 	for scanner.Scan() {
@@ -73,7 +82,9 @@ func Parse(path string) (map[string]*Stats, error) {
 		if err != nil {
 			continue // skip malformed lines
 		}
-		result[stats.DeviceName] = stats
+		result.ByName[stats.DeviceName] = stats
+		deviceID := fmt.Sprintf("%d:%d", stats.Major, stats.Minor)
+		result.ByDeviceID[deviceID] = stats
 	}
 
 	if err := scanner.Err(); err != nil {

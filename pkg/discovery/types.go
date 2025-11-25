@@ -1,6 +1,9 @@
 package discovery
 
-import "context"
+import (
+	"context"
+	"log"
+)
 
 // VolumeInfo represents a discovered PVC volume
 type VolumeInfo struct {
@@ -22,6 +25,7 @@ type VolumeInfo struct {
 	// Node-local info
 	DevicePath         string // resolved device path, e.g., /dev/sda
 	DeviceName         string // device name for diskstats, e.g., sda
+	DeviceID           string // major:minor device ID for diskstats lookup, e.g., "8:0"
 	CSIDevicePath      string // original CSI device path, e.g., /dev/disk/by-id/scsi-0DO_Volume_...
 	MountPath          string // host path, e.g., /var/lib/kubelet/pods/.../volumes/...
 	ContainerMountPath string // path inside container, e.g., /data
@@ -51,28 +55,37 @@ func NewMultiDiscoverer(discoverers ...Discoverer) *MultiDiscoverer {
 
 // Discover tries all discoverers and returns merged results
 func (m *MultiDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) {
-	seen := make(map[string]*VolumeInfo) // key by device name
+	seen := make(map[string]*VolumeInfo) // key by device ID (preferred) or device name
 
 	for _, d := range m.discoverers {
 		if !d.Available(ctx) {
+			log.Printf("discoverer %s not available", d.Name())
 			continue
 		}
 
 		volumes, err := d.Discover(ctx)
 		if err != nil {
-			// Log but continue with other discoverers
+			log.Printf("discoverer %s error: %v", d.Name(), err)
 			continue
 		}
 
+		log.Printf("discoverer %s found %d volumes", d.Name(), len(volumes))
+
 		for _, v := range volumes {
-			if v.DeviceName == "" {
+			// Use device ID as key if available, otherwise device name
+			key := v.DeviceID
+			if key == "" {
+				key = v.DeviceName
+			}
+			if key == "" {
 				continue
 			}
-			if existing, exists := seen[v.DeviceName]; exists {
+
+			if existing, exists := seen[key]; exists {
 				// Merge: fill in empty fields from new discoverer
 				mergeVolumeInfo(existing, v)
 			} else {
-				seen[v.DeviceName] = v
+				seen[key] = v
 			}
 		}
 	}
@@ -118,6 +131,9 @@ func mergeVolumeInfo(dst, src *VolumeInfo) {
 	}
 	if dst.DevicePath == "" {
 		dst.DevicePath = src.DevicePath
+	}
+	if dst.DeviceID == "" {
+		dst.DeviceID = src.DeviceID
 	}
 	if dst.CSIDevicePath == "" {
 		dst.CSIDevicePath = src.CSIDevicePath

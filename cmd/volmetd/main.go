@@ -66,7 +66,7 @@ func main() {
 	capacity := collector.NewCapacityCollector()
 
 	// Create and register volume collector
-	vc := collector.NewVolumeCollector(multi, diskstats, capacity)
+	vc := collector.NewVolumeCollector(multi, cfg.HostProcPath, diskstats, capacity)
 	prometheus.MustRegister(vc)
 
 	// HTTP server

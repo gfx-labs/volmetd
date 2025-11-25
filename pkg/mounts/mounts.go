@@ -111,6 +111,22 @@ func ResolveDevice(devicePath string) (resolvedPath, deviceName string) {
 	return resolved, name
 }
 
+// GetDeviceID returns the major:minor device ID for a mount point
+// This works by stat'ing the mount point and extracting the device ID
+func GetDeviceID(mountPoint string) (string, error) {
+	var stat syscall.Stat_t
+	if err := syscall.Stat(mountPoint, &stat); err != nil {
+		return "", fmt.Errorf("stat %s: %w", mountPoint, err)
+	}
+
+	// Dev contains major:minor encoded
+	// On Linux: major = (dev >> 8) & 0xfff, minor = (dev & 0xff) | ((dev >> 12) & 0xfff00)
+	major := (stat.Dev >> 8) & 0xfff
+	minor := (stat.Dev & 0xff) | ((stat.Dev >> 12) & 0xfff00)
+
+	return fmt.Sprintf("%d:%d", major, minor), nil
+}
+
 // evalSymlinks resolves all symlinks in a path
 func evalSymlinks(path string) (string, error) {
 	// Use filepath.EvalSymlinks equivalent

@@ -115,6 +115,9 @@ func (d *CSIDiscoverer) discoverCSIVolumes(ctx context.Context, podUID, csiDir s
 		// Resolve symlinks to get actual device for diskstats
 		resolvedPath, deviceName := mounts.ResolveDevice(mount.Device)
 
+		// Get device ID from mount point for reliable diskstats lookup
+		deviceID, _ := mounts.GetDeviceID(mountPath)
+
 		vol := &VolumeInfo{
 			PVName:        volData.VolumeName,
 			PVCName:       extractPVCName(volData.VolumeName),
@@ -127,6 +130,7 @@ func (d *CSIDiscoverer) discoverCSIVolumes(ctx context.Context, podUID, csiDir s
 			CSIDevicePath: mount.Device,
 			DevicePath:    resolvedPath,
 			DeviceName:    deviceName,
+			DeviceID:      deviceID,
 			MountPath:     mountPath,
 		}
 
