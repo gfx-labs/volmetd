@@ -260,7 +260,15 @@ func (d *K8sAPIDiscoverer) findMountPath(podUID, volName string) string {
 		return csiPath
 	}
 
-	// Regular PV volumes
+	// Try listing what CSI volumes exist for this pod
+	csiDir := filepath.Join(d.kubeletPath, "pods", podUID, "volumes", "kubernetes.io~csi")
+	if entries, err := os.ReadDir(csiDir); err == nil {
+		for _, e := range entries {
+			log.Printf("k8sapi: pod %s has csi volume dir: %s (looking for %s)", podUID, e.Name(), volName)
+		}
+	}
+
+	// Regular PV volumes (non-CSI)
 	pvPath := filepath.Join(d.kubeletPath, "pods", podUID, "volumes", "kubernetes.io~projected", volName)
 	if _, err := os.Stat(pvPath); err == nil {
 		return pvPath

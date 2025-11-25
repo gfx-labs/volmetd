@@ -122,12 +122,19 @@ func (v *VolumeCollector) resolveDeviceNames(volumes []*discovery.VolumeInfo) {
 		return
 	}
 
+	log.Printf("diskstats: parsed %d devices by name, %d by ID", len(stats.ByName), len(stats.ByDeviceID))
+
 	for _, vol := range volumes {
 		// Try to resolve device name from device ID
 		if vol.DeviceID != "" {
 			if s, ok := stats.ByDeviceID[vol.DeviceID]; ok {
+				log.Printf("resolved deviceID=%s -> deviceName=%s", vol.DeviceID, s.DeviceName)
 				vol.DeviceName = s.DeviceName
+			} else {
+				log.Printf("no diskstats match for deviceID=%s (pvc=%s)", vol.DeviceID, vol.PVCName)
 			}
+		} else {
+			log.Printf("no deviceID for volume pvc=%s (deviceName=%s)", vol.PVCName, vol.DeviceName)
 		}
 	}
 }

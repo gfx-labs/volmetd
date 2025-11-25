@@ -188,7 +188,20 @@ func (d *CSIDiscoverer) readVolData(path string) (*volData, error) {
 		vd.PodUID = v
 	}
 
+	// Debug: log if pod info is missing
+	if vd.PodName == "" {
+		log.Printf("csi: vol_data.json missing pod.name, keys: %v", getMapKeys(raw))
+	}
+
 	return vd, nil
+}
+
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // extractPVCName tries to extract PVC name from PV name

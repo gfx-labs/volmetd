@@ -124,7 +124,73 @@ func GetDeviceID(mountPoint string) (string, error) {
 	major := (stat.Dev >> 8) & 0xfff
 	minor := (stat.Dev & 0xff) | ((stat.Dev >> 12) & 0xfff00)
 
-	return fmt.Sprintf("%d:%d", major, minor), nil
+	deviceID := fmt.Sprintf("%d:%d", major, minor)
+	return deviceID, nil
+}
+
+// GetDeviceIDFromPath tries to get device ID by resolving device path through /sys
+// hostSysPath should be the path to host's /sys (e.g., "/host/sys" or "/sys")
+func GetDeviceIDFromPath(devicePath, hostSysPath string) (string, error) {
+	if hostSysPath == "" {
+		hostSysPath = "/sys"
+	}
+
+	// Extract device name from path like /dev/disk/by-id/scsi-0DO_Volume_xxx
+	// The last component often contains the device identifier
+	parts := strings.Split(devicePath, "/")
+	if len(parts) == 0 {
+		return "", fmt.Errorf("invalid device path: %s", devicePath)
+	}
+
+	// Try to find matching device in /sys/block by reading symlinks
+	blockDir := hostSysPath + "/block"
+	entries, err := os.ReadDir(blockDir)
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", blockDir, err)
+	}
+
+	// For each block device, check if it has a matching serial/wwid
+	for _, entry := range entries {
+		devName := entry.Name()
+		// Skip partitions (e.g., sda1)
+		if len(devName) > 2 && devName[len(devName)-1] >= '0' && devName[len(devName)-1] <= '9' {
+			// Check if it's a partition by looking at parent
+			if _, err := os.Stat(blockDir + "/" + devName[:len(devName)-1]); err == nil {
+				continue
+			}
+		}
+
+		// Read device ID
+		devFile := blockDir + "/" + devName + "/dev"
+		data, err := os.ReadFile(devFile)
+		if err != nil {
+			continue
+		}
+		deviceID := strings.TrimSpace(string(data))
+
+		// Check if this device's serial matches
+		serialFile := blockDir + "/" + devName + "/device/serial"
+		serialData, err := os.ReadFile(serialFile)
+		if err == nil {
+			serial := strings.TrimSpace(string(serialData))
+			// DigitalOcean volumes have serial like "pvc-xxx"
+			if serial != "" && strings.Contains(devicePath, serial) {
+				return deviceID, nil
+			}
+		}
+
+		// Check wwid
+		wwidFile := blockDir + "/" + devName + "/device/wwid"
+		wwidData, err := os.ReadFile(wwidFile)
+		if err == nil {
+			wwid := strings.TrimSpace(string(wwidData))
+			if wwid != "" && strings.Contains(devicePath, wwid) {
+				return deviceID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no matching device found for %s", devicePath)
 }
 
 // evalSymlinks resolves all symlinks in a path
