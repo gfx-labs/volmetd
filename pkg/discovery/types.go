@@ -51,7 +51,7 @@ func NewMultiDiscoverer(discoverers ...Discoverer) *MultiDiscoverer {
 
 // Discover tries all discoverers and returns merged results
 func (m *MultiDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) {
-	seen := make(map[string]*VolumeInfo) // key by device path
+	seen := make(map[string]*VolumeInfo) // key by device name
 
 	for _, d := range m.discoverers {
 		if !d.Available(ctx) {
@@ -65,12 +65,14 @@ func (m *MultiDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) {
 		}
 
 		for _, v := range volumes {
-			if v.DevicePath == "" {
+			if v.DeviceName == "" {
 				continue
 			}
-			// Prefer earlier discoverers (more authoritative)
-			if _, exists := seen[v.DevicePath]; !exists {
-				seen[v.DevicePath] = v
+			if existing, exists := seen[v.DeviceName]; exists {
+				// Merge: fill in empty fields from new discoverer
+				mergeVolumeInfo(existing, v)
+			} else {
+				seen[v.DeviceName] = v
 			}
 		}
 	}
@@ -81,4 +83,49 @@ func (m *MultiDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) {
 	}
 
 	return result, nil
+}
+
+// mergeVolumeInfo fills empty fields in dst from src
+func mergeVolumeInfo(dst, src *VolumeInfo) {
+	if dst.PVCName == "" || dst.PVCName == dst.PVName {
+		if src.PVCName != "" && src.PVCName != src.PVName {
+			dst.PVCName = src.PVCName
+		}
+	}
+	if dst.PVCNamespace == "" {
+		dst.PVCNamespace = src.PVCNamespace
+	}
+	if dst.PVName == "" {
+		dst.PVName = src.PVName
+	}
+	if dst.PodName == "" {
+		dst.PodName = src.PodName
+	}
+	if dst.PodNamespace == "" {
+		dst.PodNamespace = src.PodNamespace
+	}
+	if dst.PodUID == "" {
+		dst.PodUID = src.PodUID
+	}
+	if dst.StorageClass == "" {
+		dst.StorageClass = src.StorageClass
+	}
+	if dst.CSIDriver == "" {
+		dst.CSIDriver = src.CSIDriver
+	}
+	if dst.VolumeHandle == "" {
+		dst.VolumeHandle = src.VolumeHandle
+	}
+	if dst.DevicePath == "" {
+		dst.DevicePath = src.DevicePath
+	}
+	if dst.CSIDevicePath == "" {
+		dst.CSIDevicePath = src.CSIDevicePath
+	}
+	if dst.MountPath == "" {
+		dst.MountPath = src.MountPath
+	}
+	if dst.ContainerMountPath == "" {
+		dst.ContainerMountPath = src.ContainerMountPath
+	}
 }

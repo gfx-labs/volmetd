@@ -12,7 +12,8 @@ const (
 )
 
 // DefaultDiscoveryMethods is the default order of discovery methods
-var DefaultDiscoveryMethods = []string{DiscoveryCSI, DiscoveryK8sAPI}
+// K8s API first (has full metadata), CSI as fallback
+var DefaultDiscoveryMethods = []string{DiscoveryK8sAPI, DiscoveryCSI}
 
 // Config holds the application configuration
 type Config struct {
