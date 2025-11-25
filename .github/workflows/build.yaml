@@ -19,12 +19,36 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
+          cache: true
 
       - name: Test
         run: go test -v ./...
 
       - name: Setup ko
-        uses: ko-build/setup-ko@v0.9
+        run: |
+          set -ex
+
+          # Get latest ko release
+          tag=$(curl -L -s -u "username:${{ github.token }}" https://api.github.com/repos/ko-build/ko/releases/latest | jq -r '.tag_name')
+
+          os=${{ runner.os }}
+          arch=$(echo "${{ runner.arch }}" | tr '[:upper:]' '[:lower:]')
+          if [[ $os == "macOS" ]]; then
+            os="Darwin"
+          fi
+          if [[ $arch == "x64" ]]; then
+            arch="x86_64"
+          fi
+
+          echo "Installing ko @ ${tag} for ${os} ${arch}"
+          curl -fsL https://github.com/ko-build/ko/releases/download/${tag}/ko_${tag:1}_${os}_${arch}.tar.gz | sudo tar xzf - -C /usr/local/bin ko
+
+          # Login to ghcr.io
+          echo "${{ github.token }}" | ko login ghcr.io --username "dummy" --password-stdin
+
+          # Set KO_DOCKER_REPO
+          repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "KO_DOCKER_REPO=ghcr.io/${repo}" >> $GITHUB_ENV
 
       - name: Build and push
         run: |
