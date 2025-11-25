@@ -165,9 +165,9 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 			}
 
 			// Find mount path for this volume
-			mountPath := d.findMountPath(string(pod.UID), vol.Name)
+			mountPath := d.findMountPath(string(pod.UID), vol.Name, pvName)
 			if mountPath == "" {
-				log.Printf("k8sapi: no mount path for pod=%s vol=%s pvc=%s", pod.Name, vol.Name, pvcName)
+				log.Printf("k8sapi: no mount path for pod=%s vol=%s pvc=%s pv=%s", pod.Name, vol.Name, pvcName, pvName)
 				continue
 			}
 
@@ -253,18 +253,20 @@ func (d *K8sAPIDiscoverer) getPodsOnNode(ctx context.Context) ([]corev1.Pod, err
 	return allPods, nil
 }
 
-func (d *K8sAPIDiscoverer) findMountPath(podUID, volName string) string {
-	// CSI volumes
-	csiPath := filepath.Join(d.kubeletPath, "pods", podUID, "volumes", "kubernetes.io~csi", volName, "mount")
+func (d *K8sAPIDiscoverer) findMountPath(podUID, volName, pvName string) string {
+	csiDir := filepath.Join(d.kubeletPath, "pods", podUID, "volumes", "kubernetes.io~csi")
+
+	// Try volume name first (standard behavior)
+	csiPath := filepath.Join(csiDir, volName, "mount")
 	if _, err := os.Stat(csiPath); err == nil {
 		return csiPath
 	}
 
-	// Try listing what CSI volumes exist for this pod
-	csiDir := filepath.Join(d.kubeletPath, "pods", podUID, "volumes", "kubernetes.io~csi")
-	if entries, err := os.ReadDir(csiDir); err == nil {
-		for _, e := range entries {
-			log.Printf("k8sapi: pod %s has csi volume dir: %s (looking for %s)", podUID, e.Name(), volName)
+	// Try PV name (some CSI drivers use PV name as directory)
+	if pvName != "" {
+		csiPathByPV := filepath.Join(csiDir, pvName, "mount")
+		if _, err := os.Stat(csiPathByPV); err == nil {
+			return csiPathByPV
 		}
 	}
 
