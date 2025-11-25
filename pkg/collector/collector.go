@@ -2,7 +2,7 @@ package collector
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -75,7 +75,7 @@ func (v *VolumeCollector) Collect(ch chan<- prometheus.Metric) {
 
 	ch <- prometheus.MustNewConstMetric(scrapeDurationDesc, prometheus.GaugeValue, duration, "discovery")
 	if err != nil {
-		log.Printf("discovery error: %v", err)
+		slog.Error("discovery error", "error", err)
 		ch <- prometheus.MustNewConstMetric(scrapeSuccessDesc, prometheus.GaugeValue, 0, "discovery")
 		return
 	}
@@ -107,7 +107,7 @@ func (v *VolumeCollector) execute(c Collector, volumes []*discovery.VolumeInfo, 
 	ch <- prometheus.MustNewConstMetric(scrapeDurationDesc, prometheus.GaugeValue, duration, c.Name())
 
 	if err != nil {
-		log.Printf("collector %s error: %v", c.Name(), err)
+		slog.Error("collector error", "collector", c.Name(), "error", err)
 		ch <- prometheus.MustNewConstMetric(scrapeSuccessDesc, prometheus.GaugeValue, 0, c.Name())
 		return
 	}
@@ -118,23 +118,23 @@ func (v *VolumeCollector) execute(c Collector, volumes []*discovery.VolumeInfo, 
 func (v *VolumeCollector) resolveDeviceNames(volumes []*discovery.VolumeInfo) {
 	stats, err := diskstats.Parse(v.procPath + "/diskstats")
 	if err != nil {
-		log.Printf("failed to parse diskstats for device name resolution: %v", err)
+		slog.Error("failed to parse diskstats", "error", err)
 		return
 	}
 
-	log.Printf("diskstats: parsed %d devices by name, %d by ID", len(stats.ByName), len(stats.ByDeviceID))
+	slog.Debug("diskstats parsed", "byName", len(stats.ByName), "byID", len(stats.ByDeviceID))
 
 	for _, vol := range volumes {
 		// Try to resolve device name from device ID
 		if vol.DeviceID != "" {
 			if s, ok := stats.ByDeviceID[vol.DeviceID]; ok {
-				log.Printf("resolved deviceID=%s -> deviceName=%s", vol.DeviceID, s.DeviceName)
+				slog.Debug("resolved device", "deviceID", vol.DeviceID, "deviceName", s.DeviceName)
 				vol.DeviceName = s.DeviceName
 			} else {
-				log.Printf("no diskstats match for deviceID=%s (pvc=%s)", vol.DeviceID, vol.PVCName)
+				slog.Debug("no diskstats match", "deviceID", vol.DeviceID, "pvc", vol.PVCName)
 			}
 		} else {
-			log.Printf("no deviceID for volume pvc=%s (deviceName=%s)", vol.PVCName, vol.DeviceName)
+			slog.Debug("no deviceID for volume", "pvc", vol.PVCName, "deviceName", vol.DeviceName)
 		}
 	}
 }

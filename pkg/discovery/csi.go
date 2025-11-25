@@ -3,7 +3,7 @@ package discovery
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -135,7 +135,7 @@ func (d *CSIDiscoverer) discoverCSIVolumes(ctx context.Context, podUID, csiDir s
 			MountPath:     mountPath,
 		}
 
-		log.Printf("csi: found volume pv=%s pod=%s deviceID=%s", volData.VolumeName, volData.PodName, deviceID)
+		slog.Debug("csi: found volume", "pv", volData.VolumeName, "pod", volData.PodName, "deviceID", deviceID)
 		volumes = append(volumes, vol)
 	}
 
@@ -190,7 +190,7 @@ func (d *CSIDiscoverer) readVolData(path string) (*volData, error) {
 
 	// Debug: log if pod info is missing
 	if vd.PodName == "" {
-		log.Printf("csi: vol_data.json missing pod.name, keys: %v", getMapKeys(raw))
+		slog.Debug("csi: vol_data.json missing pod.name", "keys", getMapKeys(raw))
 	}
 
 	return vd, nil

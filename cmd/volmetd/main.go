@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,17 +19,23 @@ import (
 )
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Println("volmetd starting...")
+	// Setup slog with debug level if VOLMETD_DEBUG is set
+	level := slog.LevelInfo
+	if v := strings.ToLower(os.Getenv("VOLMETD_DEBUG")); v == "1" || v == "true" {
+		level = slog.LevelDebug
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
+
+	slog.Info("volmetd starting")
 
 	cfg := config.FromEnv()
-	log.Printf("config: listen=%s metrics=%s", cfg.ListenAddr, cfg.MetricsPath)
-	log.Printf("config: hostProc=%s kubelet=%s", cfg.HostProcPath, cfg.KubeletPath)
-	log.Printf("config: discovery=%v", cfg.DiscoveryMethods)
+	slog.Info("config", "listen", cfg.ListenAddr, "metrics", cfg.MetricsPath)
+	slog.Info("config", "hostProc", cfg.HostProcPath, "kubelet", cfg.KubeletPath)
+	slog.Info("config", "discovery", cfg.DiscoveryMethods)
 	if len(cfg.Namespaces) > 0 {
-		log.Printf("config: namespaces=%v", cfg.Namespaces)
+		slog.Info("config", "namespaces", cfg.Namespaces)
 	} else {
-		log.Println("config: namespaces=all")
+		slog.Info("config", "namespaces", "all")
 	}
 
 	// Build discoverers in configured order
@@ -39,24 +46,25 @@ func main() {
 		case config.DiscoveryCSI:
 			csi := discovery.NewCSIDiscoverer(cfg.KubeletPath, cfg.MountsPath())
 			discoverers = append(discoverers, csi)
-			log.Printf("enabled discoverer: %s", method)
+			slog.Info("enabled discoverer", "method", method)
 
 		case config.DiscoveryK8sAPI:
 			k8s, err := discovery.NewK8sAPIDiscoverer(cfg.KubeletPath, cfg.MountsPath(), cfg.Namespaces)
 			if err != nil {
-				log.Printf("warning: discoverer %s disabled: %v", method, err)
+				slog.Warn("discoverer disabled", "method", method, "error", err)
 			} else {
 				discoverers = append(discoverers, k8s)
-				log.Printf("enabled discoverer: %s", method)
+				slog.Info("enabled discoverer", "method", method)
 			}
 
 		default:
-			log.Printf("warning: unknown discovery method: %s", method)
+			slog.Warn("unknown discovery method", "method", method)
 		}
 	}
 
 	if len(discoverers) == 0 {
-		log.Fatal("no discoverers available")
+		slog.Error("no discoverers available")
+		os.Exit(1)
 	}
 
 	multi := discovery.NewMultiDiscoverer(discoverers...)
@@ -94,22 +102,23 @@ func main() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
-		log.Println("shutting down...")
+		slog.Info("shutting down")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		if err := server.Shutdown(ctx); err != nil {
-			log.Printf("shutdown error: %v", err)
+			slog.Error("shutdown error", "error", err)
 		}
 		close(done)
 	}()
 
-	log.Printf("listening on %s", cfg.ListenAddr)
+	slog.Info("listening", "addr", cfg.ListenAddr)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("listen error: %v", err)
+		slog.Error("listen error", "error", err)
+		os.Exit(1)
 	}
 
 	<-done
-	log.Println("goodbye")
+	slog.Info("goodbye")
 }

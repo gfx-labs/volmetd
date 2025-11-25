@@ -3,7 +3,7 @@ package discovery
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,7 +44,7 @@ func NewK8sAPIDiscoverer(kubeletPath, mountsPath string, namespaces []string) (*
 	}
 
 	nodeName := detectNodeName()
-	log.Printf("k8sapi: detected node name: %q", nodeName)
+	slog.Info("k8sapi: detected node name", "node", nodeName)
 
 	if kubeletPath == "" {
 		kubeletPath = "/var/lib/kubelet"
@@ -96,17 +96,17 @@ func (d *K8sAPIDiscoverer) Name() string {
 
 func (d *K8sAPIDiscoverer) Available(ctx context.Context) bool {
 	if d.client == nil {
-		log.Printf("k8sapi: client is nil")
+		slog.Debug("k8sapi: client is nil")
 		return false
 	}
 	if d.nodeName == "" {
-		log.Printf("k8sapi: node name not detected")
+		slog.Debug("k8sapi: node name not detected")
 		return false
 	}
 	// Quick check that we can talk to the API
 	_, err := d.client.CoreV1().Nodes().Get(ctx, d.nodeName, metav1.GetOptions{})
 	if err != nil {
-		log.Printf("k8sapi: cannot get node %s: %v", d.nodeName, err)
+		slog.Debug("k8sapi: cannot get node", "node", d.nodeName, "error", err)
 		return false
 	}
 	return true
@@ -123,7 +123,7 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("k8sapi: found %d pods on node %s", len(pods), d.nodeName)
+	slog.Debug("k8sapi: found pods", "count", len(pods), "node", d.nodeName)
 
 	// Build PV -> PVC mapping
 	pvToPVC := make(map[string]*pvcInfo)
@@ -167,14 +167,14 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 			// Find mount path for this volume
 			mountPath := d.findMountPath(string(pod.UID), vol.Name, pvName)
 			if mountPath == "" {
-				log.Printf("k8sapi: no mount path for pod=%s vol=%s pvc=%s pv=%s", pod.Name, vol.Name, pvcName, pvName)
+				slog.Debug("k8sapi: no mount path", "pod", pod.Name, "vol", vol.Name, "pvc", pvcName, "pv", pvName)
 				continue
 			}
 
 			// Find device from mount
 			mount := mounts.FindMountByPath(allMounts, mountPath)
 			if mount == nil {
-				log.Printf("k8sapi: no mount entry for path=%s", mountPath)
+				slog.Debug("k8sapi: no mount entry", "path", mountPath)
 				continue
 			}
 
@@ -210,7 +210,7 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 				volInfo.VolumeHandle = pvcMeta.volumeHandle
 			}
 
-			log.Printf("k8sapi: found volume pvc=%s/%s pv=%s deviceID=%s", pvcNamespace, pvcName, pvName, deviceID)
+			slog.Debug("k8sapi: found volume", "pvc", pvcNamespace+"/"+pvcName, "pv", pvName, "deviceID", deviceID)
 			volumes = append(volumes, volInfo)
 		}
 	}
