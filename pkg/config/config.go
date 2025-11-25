@@ -29,6 +29,7 @@ type Config struct {
 
 	// Discovery methods in priority order
 	DiscoveryMethods []string
+
 }
 
 // DefaultConfig returns the default configuration with auto-detected paths
