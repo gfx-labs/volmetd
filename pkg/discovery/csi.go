@@ -3,6 +3,7 @@ package discovery
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -134,6 +135,7 @@ func (d *CSIDiscoverer) discoverCSIVolumes(ctx context.Context, podUID, csiDir s
 			MountPath:     mountPath,
 		}
 
+		log.Printf("csi: found volume pv=%s pod=%s deviceID=%s", volData.VolumeName, volData.PodName, deviceID)
 		volumes = append(volumes, vol)
 	}
 

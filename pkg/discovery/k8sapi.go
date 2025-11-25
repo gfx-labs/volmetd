@@ -123,6 +123,7 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("k8sapi: found %d pods on node %s", len(pods), d.nodeName)
 
 	// Build PV -> PVC mapping
 	pvToPVC := make(map[string]*pvcInfo)
@@ -166,12 +167,14 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 			// Find mount path for this volume
 			mountPath := d.findMountPath(string(pod.UID), vol.Name)
 			if mountPath == "" {
+				log.Printf("k8sapi: no mount path for pod=%s vol=%s pvc=%s", pod.Name, vol.Name, pvcName)
 				continue
 			}
 
 			// Find device from mount
 			mount := mounts.FindMountByPath(allMounts, mountPath)
 			if mount == nil {
+				log.Printf("k8sapi: no mount entry for path=%s", mountPath)
 				continue
 			}
 
@@ -207,6 +210,7 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 				volInfo.VolumeHandle = pvcMeta.volumeHandle
 			}
 
+			log.Printf("k8sapi: found volume pvc=%s/%s pv=%s deviceID=%s", pvcNamespace, pvcName, pvName, deviceID)
 			volumes = append(volumes, volInfo)
 		}
 	}
