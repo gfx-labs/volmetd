@@ -20,9 +20,10 @@ type VolumeInfo struct {
 	VolumeHandle string // CSI volume handle / cloud provider volume ID
 
 	// Node-local info
-	DevicePath   string // e.g., /dev/sda
-	DeviceName   string // e.g., sda
-	MountPath    string // e.g., /var/lib/kubelet/pods/.../volumes/...
+	DevicePath         string // e.g., /dev/sda
+	DeviceName         string // e.g., sda
+	MountPath          string // host path, e.g., /var/lib/kubelet/pods/.../volumes/...
+	ContainerMountPath string // path inside container, e.g., /data
 }
 
 // Discoverer discovers PVC to device mappings

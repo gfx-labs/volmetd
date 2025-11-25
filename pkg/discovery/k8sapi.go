@@ -166,18 +166,22 @@ func (d *K8sAPIDiscoverer) Discover(ctx context.Context) ([]*VolumeInfo, error) 
 
 			deviceName, _ := mounts.GetDeviceName(mount.Device)
 
+			// Find container mount path
+			containerMountPath := findContainerMountPath(&pod, vol.Name)
+
 			pvcMeta := pvToPVC[pvName]
 
 			volInfo := &VolumeInfo{
-				PVCName:      pvcName,
-				PVCNamespace: pvcNamespace,
-				PVName:       pvName,
-				PodName:      pod.Name,
-				PodNamespace: pod.Namespace,
-				PodUID:       string(pod.UID),
-				DevicePath:   mount.Device,
-				DeviceName:   deviceName,
-				MountPath:    mountPath,
+				PVCName:            pvcName,
+				PVCNamespace:       pvcNamespace,
+				PVName:             pvName,
+				PodName:            pod.Name,
+				PodNamespace:       pod.Namespace,
+				PodUID:             string(pod.UID),
+				DevicePath:         mount.Device,
+				DeviceName:         deviceName,
+				MountPath:          mountPath,
+				ContainerMountPath: containerMountPath,
 			}
 
 			if pvcMeta != nil {
@@ -254,6 +258,27 @@ func getCSIDriver(pv *corev1.PersistentVolume) string {
 func getVolumeHandle(pv *corev1.PersistentVolume) string {
 	if pv.Spec.CSI != nil {
 		return pv.Spec.CSI.VolumeHandle
+	}
+	return ""
+}
+
+// findContainerMountPath finds the mount path inside containers for a volume
+func findContainerMountPath(pod *corev1.Pod, volName string) string {
+	// Check regular containers first
+	for _, c := range pod.Spec.Containers {
+		for _, vm := range c.VolumeMounts {
+			if vm.Name == volName {
+				return vm.MountPath
+			}
+		}
+	}
+	// Check init containers
+	for _, c := range pod.Spec.InitContainers {
+		for _, vm := range c.VolumeMounts {
+			if vm.Name == volName {
+				return vm.MountPath
+			}
+		}
 	}
 	return ""
 }

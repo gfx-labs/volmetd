@@ -18,6 +18,7 @@ var volumeLabels_ = []string{
 	"pod_namespace",
 	"storage_class",
 	"csi_driver",
+	"mount_path",
 }
 
 var diskstatsMetrics = MetricSet[*diskstats.Stats]{
@@ -99,5 +100,6 @@ func volumeLabels(vol *discovery.VolumeInfo) []string {
 		vol.PodNamespace,
 		vol.StorageClass,
 		vol.CSIDriver,
+		vol.ContainerMountPath,
 	}
 }
