@@ -1,4 +1,4 @@
-defaultBaseImage: gcr.io/distroless/static:nonroot
+defaultBaseImage: cgr.dev/chainguard/bash:latest
 defaultPlatforms:
   - linux/amd64
   - linux/arm64
