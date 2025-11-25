@@ -1,0 +1,59 @@
+image:
+  repository: ghcr.io/gfx-labs/volmetd
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "6060"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext: {}
+
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations:
+  - operator: Exists
+
+affinity: {}
+
+priorityClassName: system-node-critical
+
+config:
+  # Filter to specific namespaces (empty = all)
+  namespaces: []
+  # Discovery methods in priority order. Available: csi, k8sapi
+  # Leave empty for defaults: [csi, k8sapi]
+  discoveryMethods: []
+
+service:
+  type: ClusterIP
+  port: 6060
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  additionalLabels: {}

@@ -1,0 +1,15 @@
+apiVersion: v2
+name: volmetd
+description: PVC disk I/O metrics exporter for Kubernetes
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - prometheus
+  - metrics
+  - pvc
+  - disk
+  - io
+  - kubernetes
+maintainers:
+  - name: GFX Labs
