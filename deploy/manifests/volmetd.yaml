@@ -145,7 +145,7 @@ spec:
       protocol: TCP
 ---
 apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
+kind: PodMonitor
 metadata:
   name: volmetd
   namespace: volmetd
@@ -155,7 +155,7 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: volmetd
-  endpoints:
+  podMetricsEndpoints:
     - port: metrics
       interval: 30s
       path: /metrics
