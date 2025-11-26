@@ -23,6 +23,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "volmetd.serviceAccountName" . }}
+      hostPID: false
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -40,6 +41,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            {{- if .Values.config.debug }}
+            - name: VOLMETD_DEBUG
+              value: "true"
+            {{- end }}
             {{- if .Values.config.namespaces }}
             - name: VOLMETD_NAMESPACES
               value: {{ .Values.config.namespaces | join "," | quote }}

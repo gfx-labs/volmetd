@@ -42,10 +42,12 @@ affinity: {}
 priorityClassName: system-node-critical
 
 config:
+  # Enable debug logging
+  debug: false
   # Filter to specific namespaces (empty = all)
   namespaces: []
-  # Discovery methods in priority order. Available: csi, k8sapi
-  # Leave empty for defaults: [csi, k8sapi]
+  # Discovery methods in priority order. Available: k8sapi, csi
+  # Leave empty for defaults: [k8sapi, csi]
   discoveryMethods: []
 
 service:
