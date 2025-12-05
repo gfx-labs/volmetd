@@ -72,7 +72,7 @@ spec:
       hostPID: false
       containers:
         - name: volmetd
-          image: ghcr.io/gfx-labs/volmetd:master
+          image: ghcr.io/gfx-labs/volmetd:release
           imagePullPolicy: IfNotPresent
           ports:
             - name: metrics

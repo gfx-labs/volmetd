@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/gfx-labs/volmetd
-  tag: master
+  tag: release
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

@@ -54,7 +54,7 @@ jobs:
         run: |
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION="${{ github.ref_name }}"
-            ko build --bare --tags="${VERSION},latest" ./cmd/volmetd
+            ko build --bare --tags="${VERSION},latest,release" ./cmd/volmetd
           else
             ko build --bare --tags="master,${{ github.sha }}" ./cmd/volmetd
           fi
